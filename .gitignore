@@ -3,4 +3,5 @@ peda*
 .gdb*
 compile
 machine
+vm
 *.bin
