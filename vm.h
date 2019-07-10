@@ -44,7 +44,7 @@ exit
 
 */
 
-typedef int32_t i32; // i32 will be interpreted same as int32_t
+typedef uint32_t i32; // i32 will be interpreted same as int32_t
 
 class instructions
 {
@@ -53,28 +53,24 @@ public:
 	i32 opcode, reg_id1, reg_id2, eax, ebx, ecx, edx, imm;
 };
 
-// main vm struct
+// main vm
 
 class VM
 {
-	i32 eip = 0x00;		 //	instruction pointer
-	i32 esp = -1;		 //	stack pointer
-	i32 memory[128];	 //	stack
-	std::vector<i32> program; //	program
-	i32 isrunning = 1;   //	is cpu running?
+	i32 eip = 0x00;					//	instruction pointer
+	i32 esp = -1;					//	stack pointer
+	i32 memory[128];				//	stack
+	std::vector<i32> program;		//	program
+	i32 isrunning = 1;				//	is cpu running?
 
-	i32 eax = 0x00; //  general purpose register 0
-	i32 ebx = 0x00; //	general purpose register 1
-	i32 ecx = 0x00; // 	general purpose register 2
-	i32 edx = 0x00; //  general purpose register 3
+	i32 reg[4];						// array of gpr
 
-	i32 zf = 0;						   //	zero  flag
-	i32 cf = 0;						   //	carry flag
-	i32 reg[4] = {eax, ebx, ecx, edx}; // array of gpr
+	i32 zf = 0;						//	zero  flag
+	i32 cf = 0;						//	carry flag
 	
 public:
-	VM(char *programName); //	constructor to load vm
-	~VM();				   //  destructor to cleanup everything
+	VM(char *programName);			//	constructor to load vm
+	~VM();							//  destructor to cleanup everything
 	void execute(i32);
 	i32 fetch();
 	void run();
