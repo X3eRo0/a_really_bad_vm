@@ -2,7 +2,7 @@
 #include <fstream>
 #include "vm.h"
 
-// #define DEBUG // enable this to enable debug output
+//#define DEBUG // enable this to enable debug output
 
 using namespace std;
 
@@ -12,23 +12,35 @@ instructions decode(i32 instruction)
 	struct instructions ins; // getting a instructions object
 
 	// decoding registers according to definition
-	ins.opcode = (instruction & 0xff000000) >> 24;
+	ins.opcode 	= (instruction & 0xff000000) >> 24;
 	ins.reg_id1 = (instruction & 0x00ff0000) >> 16;
 	ins.reg_id2 = (instruction & 0x0000ff00) >> 8;
-	ins.imm = (instruction & 0x0000ffff);
+	ins.imm 	= (instruction & 0x0000ffff);
 
 	return ins;
 };
 
+
 VM::VM(char* filename){
+
+
 	ifstream file(filename, ios::binary);
 	i32 i;
 
-	while (file.read((char*)&i, sizeof(i))) {
-		this->program.push_back(i);
+	if(!file){
+		printf("no such file or directory: %s\n",filename );
+		exit(1);		
 	}
 
+	file.seekg(0,ios::end);
+	int size = file.tellg();
+	file.seekg(0);
+	program.resize((size+3)/4);
+	file.read((char*)&program[0],size);
+
+
 #ifdef DEBUG
+	cout<<size<<endl;
 	cout<<"Loaded program"<<endl;
 	for(i32 code : this->program) {
 		cout<<hex<<code<<endl;
@@ -48,9 +60,10 @@ void VM::execute(i32 code)
 	i32 imm = ins.imm;
 
 	//	DEBUG
-	//	printf("instruction : 0x%x\n",code);
-
-	if (reg_id2 > 3 and opcode == 0x09)
+#ifdef DEBUG
+		printf("instruction : 0x%x\n",code);
+#endif
+	if (reg_id2 == 4 and opcode == 0x09)
 	{
 
 		//	we will use reg_id2 as a wayz to pass zf as an argument to an instruction
@@ -73,17 +86,16 @@ void VM::execute(i32 code)
 		break;
 
 	case 0x02: //[PRINT] print the value in the register specified by reg_id1
-		switch (reg_id2)
-		{		   // switch for format string
-		case 0x01: // print as int
-			printf("%d\n", reg[reg_id2]);
-			break;
-		case 0x02: // print as char
-			printf("%c\n", reg[reg_id2]);
-			;
-			break;
-		default:
-			cout << "Invalid format" << endl;
+		switch(reg_id1){ // switch for format string
+			case 0x01:   // print as int
+				printf("%d\n",reg[reg_id2]);break;
+			case 0x02:	 // print as char
+				printf("%c",reg[reg_id2]);;break;
+			case 0x03:
+				printf("%c",imm );
+				break;
+			default:
+				cout<<"Invalid format"<<endl;
 		};
 		break;
 
@@ -111,54 +123,49 @@ void VM::execute(i32 code)
 		reg[reg_id1] = reg[reg_id1] / reg[reg_id2];
 		break;
 
-	case 0x9: //cmp a register with register or with a imm value
-		switch (reg[reg_id2])
-		{
-		case 0x00: // if reg[reg_id2] is 0 then compare register with imm value
-				   // otherwise compare register with register
+	case 0x9:	//cmp a register with register or with a imm value
+		switch(reg_id2){
 
-			//	DEBUG
-			//	printf("comparing %d with %d\n",reg[reg_id1],imm);
+			case 0x05:	// if reg[reg_id2] is 0 then compare register with imm value
+						// otherwise compare register with register 
+				
 
-			if (reg[reg_id1] == imm)
-			{
+				imm = imm & 0xff;
+				#ifdef DEBUG	
+				//	DEBUG
+					printf("comparing %d with %d\n",reg[reg_id1],imm);
+				#endif
+				
+				if(reg[reg_id1]==imm){
 
-				zf = 1;
-				cf = 0;
-			}
-			else if (reg[reg_id1] > imm)
-			{
-				zf = 0;
-				cf = 0;
-			}
-			else
-			{
-				zf = 0;
-				cf = 1;
-			}
-			break;
+					zf = 1; cf = 0;
+				}
+				else if(reg[reg_id1] > imm){
+					zf = 0; cf = 0;
+				}
+				else{
+					zf = 0; cf = 1;
+				}
+				break;
 
-		default:
+			default:
+				#ifdef DEBUG
 
-			//	DEBUG
-			printf("comparing %d with (reg) %d\n", reg[reg_id1], reg[reg_id2]);
+				//	DEBUG
+					printf("imm: %d\nreg[%d]:%d\n",imm,reg_id2,reg[reg_id2] );			
+					printf("comparing %d with (reg) %d\n",reg[reg_id1],reg[reg_id2]);
+				#endif
+				if(reg[reg_id1]==reg[reg_id2]){
+					zf = 1; cf = 0;
+				}
+				else if(reg[reg_id1] > reg[reg_id1]){
+					zf = 0; cf = 0;
+				}
+				else{
+					zf = 0; cf = 1;
+				}
+				break;
 
-			if (reg[reg_id1] == reg[reg_id2])
-			{
-				zf = 1;
-				cf = 0;
-			}
-			else if (reg[reg_id1] > reg[reg_id1])
-			{
-				zf = 0;
-				cf = 0;
-			}
-			else
-			{
-				zf = 0;
-				cf = 1;
-			}
-			break;
 		}
 		break;
 
@@ -189,6 +196,15 @@ void VM::execute(i32 code)
 	case 0x0b: //[HALT] will stop the execution of vm
 		isrunning = 0;
 		break;
+	
+	case 0x0c: //[READ] read a char and push it into memory
+		{
+			for (int i=0;i<imm;i++){
+				char buff = getc(stdin);
+				memory[++esp] = buff;
+			}
+			break;
+		}
 
 	default: // Segmentation Fault
 		cout << "Invalid Instruction (SEGV) eip :";
