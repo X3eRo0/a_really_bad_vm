@@ -1,4 +1,6 @@
 *.o
-vm
 peda*
 .gdb*
+compile
+machine
+*.bin
