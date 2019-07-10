@@ -1,17 +1,13 @@
 CFLAGS=-std=c++11
+CC=g++
 
-all: vm write
+all: machine compile
 
-vm: vm.o vm2.o
-	$(CXX) $(CFLAGS) vm.o vm2.o -o vm
+machine: vm.cpp main.cpp
+	$(CC) $(CFLAGS) $^ -o $@
 
-vm2.o: vm2.cpp
-	$(CXX) $(CFLAGS) -c vm2.cpp
+compile: compile.cpp
+	$(CC) $(CFLAGS) $^ -o $@
 
-vm.o: vm.h vm.cpp
-	$(CXX) $(CFLAGS) -c vm.cpp
-
-write:
-	g++ write.cpp -o compile
 clean:
-	rm -f *.o vm compile program.bin
+	rm -f machine compile program.bin

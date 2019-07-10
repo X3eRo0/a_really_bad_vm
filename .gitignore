@@ -1,0 +1,6 @@
+*.o
+peda*
+.gdb*
+compile
+machine
+*.bin
