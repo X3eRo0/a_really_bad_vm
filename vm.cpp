@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string.h>
 #include <fstream>
 #include "vm.h"
 
@@ -9,13 +10,15 @@ using namespace std;
 instructions decode(i32 instruction)
 {
 
-	struct instructions ins; // getting a instructions object
+	instructions ins; // getting a instructions object
 
 	// decoding registers according to definition
-	ins.opcode 	= (instruction & 0xff000000) >> 24;
-	ins.reg_id1 = (instruction & 0x00ff0000) >> 16;
-	ins.reg_id2 = (instruction & 0x0000ff00) >> 8;
-	ins.imm 	= (instruction & 0x0000ffff);
+	ins.opcode      = (instruction & 0xff000000) >> 24;
+	ins.reg_id1     = (instruction & 0x00ff0000) >> 16;
+	ins.reg_id2     = (instruction & 0x0000ff00) >> 8;
+	ins.imm 		= (instruction & 0x0000ffff);
+        
+        
 
 	return ins;
 };
@@ -23,6 +26,7 @@ instructions decode(i32 instruction)
 
 VM::VM(char* filename){
 
+       
 
 	ifstream file(filename, ios::binary);
 	i32 i;
@@ -53,47 +57,75 @@ VM::VM(char* filename){
 void VM::execute(i32 code)
 {
 
-	struct instructions ins = decode(code);
-	i32 opcode = ins.opcode;
-	i32 reg_id1 = ins.reg_id1;
-	i32 reg_id2 = ins.reg_id2;
-	i32 imm = ins.imm;
+	instructions ins = decode(code);
+	i32 opcode       = ins.opcode;
+	i32 reg_id1      = ins.reg_id1;
+	i32 reg_id2      = ins.reg_id2;
+	i32 imm          = ins.imm;
 
 	//	DEBUG
-#ifdef DEBUG
+        #ifdef DEBUG
 		printf("instruction : 0x%x\n",code);
-#endif
-	if (reg_id2 == 4 and opcode == 0x09)
+        #endif
+	
+        if (reg_id2 == 4)
 	{
 
 		//	we will use reg_id2 as a wayz to pass zf as an argument to an instruction
 		//	only when reg_id is greater than 3
 
 		//	DEBUG
-		//	printf("reg_id2 = zero flag (%d)\n",zf);
+			printf("reg_id2 = zero flag (%d)\n",zf);
 
 		reg_id2 = 2;
 		reg[reg_id2] = zf;
 	}
 
-	//printf("[+] opcode : 0x%x\n[+] reg_id1 : 0x%x\n[+] reg_id2 : 0x%x\n[+] imm : 0x%x\n",opcode,reg_id1,reg_id2,imm);
+	//printf("[+] opcode : 0x%x\n[+] reg_id1 : 0x%x[ %d ]\n[+] reg_id2 : 0x%x[ %d ]\n[+] imm : 0x%x\n",opcode,reg_id1,reg[reg_id1],reg_id2,reg[reg_id2],imm);
 
 	switch (opcode)
 	{
 
 	case 0x01: //[MOV] mov the imm value in one of the grp represented by reg_id1
-		reg[reg_id1] = imm;
-		break;
+          imm &= 0xff;
+          switch(reg_id2){
+            case 0x19:
+              reg[reg_id1] = zf;
+              break;
+            default:
+              reg[reg_id1] = imm;
+              break;
+          }break;
 
 	case 0x02: //[PRINT] print the value in the register specified by reg_id1
 		switch(reg_id1){ // switch for format string
 			case 0x01:   // print as int
 				printf("%d\n",reg[reg_id2]);break;
 			case 0x02:	 // print as char
-				printf("%c",reg[reg_id2]);;break;
+				printf("%c",reg[reg_id2]);break;
 			case 0x03:
 				printf("%c",imm );
 				break;
+                        case 0x04:
+                            {
+                                int i = 1;
+                                char byte = (char)program[0x1ff+imm];
+                                while(byte!='\x09'){
+                                  printf("%c",byte);
+                                  byte = (char)program[0x1ff+imm+i];
+                                  i++;
+                                }
+                            }break;
+                        case 0x05:
+                            {
+                                int i = 1;
+                                char byte = (char)heap[strs[imm]];
+                                while(byte!='\x09'){
+                                  printf("%c",byte);
+                                  byte = (char)heap[strs[imm]+i];
+                                  i++;
+                                }
+                            }break;
 			default:
 				cout<<"Invalid format"<<endl;
 		};
@@ -108,8 +140,17 @@ void VM::execute(i32 code)
 		break;
 
 	case 0x05: //[ADD] Store the sum of registers in the first register
-		reg[reg_id1] = reg[reg_id1] + reg[reg_id2];
-		break;
+                imm &= 0xff;
+                switch(reg_id2){
+                  case 0x5:
+                    reg[reg_id1] = reg[reg_id1] + imm;
+                    break;
+                  default:
+                    reg[reg_id1] += reg[reg_id2];
+                    break;                 
+                }
+                break;
+
 
 	case 0x06: //[MUL] Store the product of registers in the first register
 		reg[reg_id1] = reg[reg_id1] * reg[reg_id2];
@@ -133,7 +174,7 @@ void VM::execute(i32 code)
 				imm = imm & 0xff;
 				#ifdef DEBUG	
 				//	DEBUG
-					printf("comparing %d with %d\n",reg[reg_id1],imm);
+					printf("imm comparing 0x%x with 0x%x\n",reg[reg_id1],imm);
 				#endif
 				
 				if(reg[reg_id1]==imm){
@@ -148,12 +189,29 @@ void VM::execute(i32 code)
 				}
 				break;
 
+                        case 0x06:
+                                
+                                imm = program[imm]&0xff;
+				if(reg[reg_id1]==imm){
+
+					zf = 1; cf = 0;
+				}
+				else if(reg[reg_id1] > imm){
+					zf = 0; cf = 0;
+				}
+				else{
+					zf = 0; cf = 1;
+				}
+				break;
+
+
+
 			default:
 				#ifdef DEBUG
 
 				//	DEBUG
 					printf("imm: %d\nreg[%d]:%d\n",imm,reg_id2,reg[reg_id2] );			
-					printf("comparing %d with (reg) %d\n",reg[reg_id1],reg[reg_id2]);
+					printf("no imm comparing 0x%x with (reg) 0x%x\n",reg[reg_id1],reg[reg_id2]);
 				#endif
 				if(reg[reg_id1]==reg[reg_id2]){
 					zf = 1; cf = 0;
@@ -172,8 +230,8 @@ void VM::execute(i32 code)
 	case 0x0a: //[JMP] jump to specified line (line number is passed as imm value)
 		switch (reg_id1)
 		{
-			//	if reg[reg_id1] is 1 then do a je 	(jump is zf is set)
-			//	if reg[reg_id1] is 2 then do a jne	(jump if zf is not set)
+			//	if [reg_id1] is 1 then do a je 	(jump is zf is set)
+			//	if [reg_id1] is 2 then do a jne	(jump if zf is not set)
 			//	otherwise just jump to the given line
 		case 0x01:
 			if (zf)
@@ -197,15 +255,101 @@ void VM::execute(i32 code)
 		isrunning = 0;
 		break;
 	
-	case 0x0c: //[READ] read a char and push it into memory
-		{
-			for (int i=0;i<imm;i++){
-				char buff = getc(stdin);
-				memory[++esp] = buff;
-			}
+	case 0x0c: //[READ] read a char and place it into memory
+                {
+                        char buff[0x100];
+                        fgets(buff,imm+1,stdin);
+                        //printf("HTPR %d\n",hptr);
+                        for(int i=0;i<0x100;i++){
+                           if(buff[i] == '\x00' || buff[i] == '\x0a'){
+                             buff[i]='\x09';
+                             imm = i;
+                             break;
+                           }
+                        }
+                        //printf("[imm %d] [ %p ]\n",imm,heap);
+                        int l=1;
+                        memcpy(heap+hptr,buff,imm+1);
+                        strs[strptr++]=hptr;
+                        hptr+=imm+1;
+                        #ifdef DEBUG
+                        puts("heap dump");
+                        for(int m=0;m<30;m++){
+                          if(m%10==0){
+                            printf("\n[ %02d ]",l);
+                            l++;
+                          }
+                          printf("%c",heap[m]);
+                        }
+                        #endif
 			break;
 		}
+        case 0x0d: // fetch the rom for a value and place that in a register
+                imm &= 0xff;
+                switch(imm){
+                  case 0x1:
+                    reg[reg_id1] = program[0x1ff+reg[reg_id2]];
+                    break;
+                  case 0x2:
+                    reg[reg_id1] = heap[reg[reg_id2]];
+                    break;
+                }
+                break;
+        case 0x0e:{
+                imm &= 0xff;
+                switch(imm){
+                  case 0x01:{
+                              int address1 = strs[reg_id1];
+                              int address2 = strs[reg_id2];
+                              int i = 0,same = 1;
+                              while(heap[address1+i]!='\x09'){
+                                if(heap[address1+i] != '\x09' || heap[address2+i] != '\x09'){
+                                  if(heap[address1+i]==heap[address2+i]){
+                                    same = 1;
+                                  }
+                                  else{
+                                    same = 0;
+                                  }
+                                }
+                                else{
+                                  same = 0;
+                                }
+                                i++;
+                              }
+                              zf = same;
+                           }
+                            
+                  
+                  case 0x02:{
+                              int address1 = strs[reg_id1];
+                              int address2 = reg_id2;
+                              int i = 0,same = 1;
+                              while(heap[address1+i]!='\x09'){
+                                if(heap[address1+i] != '\x09' || program[address2+i] != '\x0a'){
+                                  if(heap[address1+i]==program[0xff+address2+i]){
+                                    same = 1;
+                                  }
+                                  else{
+                                    same = 0;
+                                  }
+                                }
+                                else{
+                                  same = 0;
+                                }
+                                i++;
+                              }
+                              zf = same;
+                           }
+                            
+                  }
+              }break;
+        case 0x0f:
+                //printf("%d ^ %d",reg[reg_id1],imm);
+                  if(reg[reg_id1]!='\x09')
+                  reg[reg_id1] = reg[reg_id1] ^ imm;
+                //printf(" : %d\n",reg[reg_id1]);
 
+                  break;
 	default: // Segmentation Fault
 		cout << "Invalid Instruction (SEGV) eip :";
 		printf("0x%x code : 0x%x\n", eip, code);

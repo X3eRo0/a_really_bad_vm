@@ -57,20 +57,22 @@ public:
 
 class VM
 {
-	i32 eip = 0x00;					//	instruction pointer
-	i32 esp = -1;					//	stack pointer
-	i32 memory[128];				//	stack
-	std::vector<i32> program;		//	program
-	i32 isrunning = 1;				//	is cpu running?
+	i32 eip = 0x00;									//	instruction pointer
+	i32 esp = -1;									//	stack pointer
+	i32 memory[128];								//	stack
+	char * heap = (char *)calloc(256,1)				//  place to store strings
+	int strs[40];
+	int hptr = 0,strptr=0;
+	std::vector<i32> program;						//	program
+	i32 isrunning = 1;								//	is cpu running?
 
-	i32 reg[4];						// array of gpr
-
-	i32 zf = 0;						//	zero  flag
-	i32 cf = 0;						//	carry flag
+	i32 reg[4];										//  array of gpr
+	i32 zf = 0;										//	zero  flag
+	i32 cf = 0;										//	carry flag
 	
 public:
-	VM(char *programName);			//	constructor to load vm
-	~VM();							//  destructor to cleanup everything
+	VM(char *programName);							//	constructor to load vm
+	~VM();											//  destructor to cleanup everything
 	void execute(i32);
 	i32 fetch();
 	void run();
